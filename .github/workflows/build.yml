@@ -17,7 +17,7 @@ on:
   workflow_dispatch:
 
 env:
-  IMAGE_NAME: hyird/mikrotik-mihomo
+  IMAGE_NAME: deleteduser54/mikrotik-mihomo
 
 jobs:
   build:
