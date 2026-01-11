@@ -1,7 +1,7 @@
 # mihomo Docker 镜像 - 用于 RouterOS
 # 使用 iptables-legacy 作为默认后端
 
-FROM alpine:latest
+FROM alpine:3.18
 
 LABEL maintainer="mikrotik-mihomo"
 LABEL description="mihomo for RouterOS with iptables-legacy"
@@ -11,19 +11,12 @@ ARG TARGETVARIANT
 
 # 单层 RUN 减少镜像层数
 RUN set -ex; \
-    # 安装运行时必需的包
+    # 安装运行时必需的包（Alpine 3.18 默认 iptables-legacy）
     apk add --no-cache \
         ca-certificates \
         iptables \
         ip6tables \
         tzdata; \
-    # 强制使用 iptables-legacy（RouterOS 不支持 nftables）
-    ln -sf /sbin/iptables-legacy /sbin/iptables; \
-    ln -sf /sbin/iptables-legacy-save /sbin/iptables-save; \
-    ln -sf /sbin/iptables-legacy-restore /sbin/iptables-restore; \
-    ln -sf /sbin/ip6tables-legacy /sbin/ip6tables; \
-    ln -sf /sbin/ip6tables-legacy-save /sbin/ip6tables-save; \
-    ln -sf /sbin/ip6tables-legacy-restore /sbin/ip6tables-restore; \
     # 创建配置目录
     mkdir -p /root/.config/mihomo; \
     # 获取最新版本号
