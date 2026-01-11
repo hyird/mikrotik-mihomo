@@ -12,8 +12,8 @@ on:
       - main
       - master
   schedule:
-    # 每周一 UTC 00:00 自动构建，拉取最新 mihomo
-    - cron: '0 0 * * 1'
+    # 每天 UTC 00:00 自动构建，拉取最新 mihomo
+    - cron: '0 0 * * *'
   workflow_dispatch:
 
 env:
