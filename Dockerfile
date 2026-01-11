@@ -16,13 +16,13 @@ RUN set -ex; \
         ca-certificates \
         iptables-legacy \
         tzdata; \
-    # 创建 iptables 符号链接
-    ln -sf /sbin/iptables-legacy /sbin/iptables; \
-    ln -sf /sbin/iptables-legacy-save /sbin/iptables-save; \
-    ln -sf /sbin/iptables-legacy-restore /sbin/iptables-restore; \
-    ln -sf /sbin/ip6tables-legacy /sbin/ip6tables; \
-    ln -sf /sbin/ip6tables-legacy-save /sbin/ip6tables-save; \
-    ln -sf /sbin/ip6tables-legacy-restore /sbin/ip6tables-restore; \
+    # 创建 iptables 符号链接（源文件在 /usr/sbin/）
+    ln -sf /usr/sbin/iptables-legacy /sbin/iptables; \
+    ln -sf /usr/sbin/iptables-legacy-save /sbin/iptables-save; \
+    ln -sf /usr/sbin/iptables-legacy-restore /sbin/iptables-restore; \
+    ln -sf /usr/sbin/ip6tables-legacy /sbin/ip6tables; \
+    ln -sf /usr/sbin/ip6tables-legacy-save /sbin/ip6tables-save; \
+    ln -sf /usr/sbin/ip6tables-legacy-restore /sbin/ip6tables-restore; \
     # 创建配置目录
     mkdir -p /root/.config/mihomo; \
     # 获取最新版本号
