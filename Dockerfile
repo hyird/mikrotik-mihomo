@@ -11,18 +11,12 @@ ARG TARGETVARIANT
 
 # 单层 RUN 减少镜像层数
 RUN set -ex; \
-    # 安装运行时必需的包（使用 iptables-legacy 而非默认的 nft）
+    # 安装运行时必需的包（使用 iptables，Alpine 默认是 legacy 后端）
     apk add --no-cache \
         ca-certificates \
-        iptables-legacy \
+        iptables \
+        ip6tables \
         tzdata; \
-    # 创建 iptables 符号链接（源文件在 /usr/sbin/）
-    ln -sf /usr/sbin/iptables-legacy /sbin/iptables; \
-    ln -sf /usr/sbin/iptables-legacy-save /sbin/iptables-save; \
-    ln -sf /usr/sbin/iptables-legacy-restore /sbin/iptables-restore; \
-    ln -sf /usr/sbin/ip6tables-legacy /sbin/ip6tables; \
-    ln -sf /usr/sbin/ip6tables-legacy-save /sbin/ip6tables-save; \
-    ln -sf /usr/sbin/ip6tables-legacy-restore /sbin/ip6tables-restore; \
     # 创建配置目录
     mkdir -p /root/.config/mihomo; \
     # 获取最新版本号
