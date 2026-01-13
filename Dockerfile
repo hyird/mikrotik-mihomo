@@ -1,21 +1,20 @@
 # mihomo Docker 镜像 - 用于 RouterOS
-# 使用 iptables-legacy 作为默认后端
+# 使用 nftables 作为防火墙后端
 
-FROM alpine:3.18
+FROM alpine:latest
 
 LABEL maintainer="mikrotik-mihomo"
-LABEL description="mihomo for RouterOS with iptables-legacy"
+LABEL description="mihomo for RouterOS with nftables"
 
 ARG TARGETARCH
 ARG TARGETVARIANT
 
 # 单层 RUN 减少镜像层数
 RUN set -ex; \
-    # 安装运行时必需的包（Alpine 3.18 默认 iptables-legacy）
+    # 安装运行时必需的包（使用 nftables）
     apk add --no-cache \
         ca-certificates \
-        iptables \
-        ip6tables \
+        nftables \
         tzdata; \
     # 创建配置目录
     mkdir -p /root/.config/mihomo; \
