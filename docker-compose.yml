@@ -1,0 +1,36 @@
+version: "3.8"
+
+services:
+  mihomo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mihomo
+    hostname: mihomo
+
+    network_mode: host
+
+    privileged: true
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+      - NET_RAW
+      - SYS_MODULE
+
+    volumes:
+      - ./clash:/etc/config/clash
+      - ./logs:/tmp/ppgw
+      - /sys:/sys:ro
+      - /proc:/proc:ro
+
+    environment:
+      - FAKE_CIDR=198.18.0.0/16
+      - TPROXY_PORT=1082
+      - BLOCK_QUIC=true
+      - CLASH_WEB_PORT=80
+      - CLASH_WEB_PASSWORD=clashpass
+      - SLEEPTIME=30
+      - SUBURL=https://example.com/subscribe
+      - TZ=Asia/Shanghai
+
+    restart: unless-stopped

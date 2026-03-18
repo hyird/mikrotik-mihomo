@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: bundle metacubexd UI at build time and fix BLOCK_QUIC rule position\n\n- Pre-download metacubexd into Docker image to avoid runtime download failures\n- Move QUIC drop rule into clashboth prerouting chain before TPROXY\n- Remove external-ui-url from config since UI is now built-in\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nrefactor: overhaul DNS config, add subscription domain DIRECT rule, remove TUN\n\n- Enhance DNS with DoH upstreams, proxy-server-nameserver, and comprehensive fake-ip-filter\n- Auto-extract subscription URL domain and route it via DIRECT to avoid bootstrap issues\n- Remove TUN-related config from base.yaml, entrypoint.sh, and docker-compose.yml\n- Clean up unused config entries \\(hosts, users, profile\\)\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit:*)"
+    ]
+  }
+}
