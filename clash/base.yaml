@@ -1,32 +1,10 @@
 mixed-port: 7897
+tproxy-port: {tproxy_port}
 allow-lan: true
 bind-address: 0.0.0.0
 mode: rule
 log-level: info
 unified-delay: true
-ipv6: false
-find-process-mode: off
-
-tun:
-  enable: true
-  stack: {tun_stack}
-  device: {tun_device}
-  auto-route: {tun_auto_route}
-  auto-redirect: {tun_auto_redirect}
-  auto-detect-interface: {tun_auto_detect_interface}
-  strict-route: {tun_strict_route}
-  dns-hijack:
-    - any:53
-    - tcp://any:53
-  inet4-address:
-    - {tun_inet4_address}
-  mtu: {tun_mtu}
-  gso: {tun_gso}
-  gso-max-size: {tun_gso_max_size}
-  iproute2-table-index: {tun_iproute2_table_index}
-  iproute2-rule-index: {tun_iproute2_rule_index}
-  endpoint-independent-nat: {tun_endpoint_independent_nat}
-  udp-timeout: {tun_udp_timeout}
 
 dns:
   enable: true

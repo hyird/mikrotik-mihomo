@@ -20,16 +20,6 @@ escape_js_string() {
     printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
 }
 
-replace_placeholder() {
-    local placeholder=$1
-    local value=$2
-    local file=$3
-    local escaped_value
-
-    escaped_value="$(escape_sed_replacement "$value")"
-    sed -i "s|{$placeholder}|$escaped_value|g" "$file"
-}
-
 curl_api() {
     if [ -n "$CLASH_WEB_PASSWORD" ]; then
         curl -s -H "Authorization: Bearer $CLASH_WEB_PASSWORD" "$@"
@@ -42,49 +32,28 @@ init_system() {
     log info "Initializing system configuration..."
 
     sysctl -w net.ipv4.ip_forward=1 >/dev/null
+    sysctl -w net.ipv4.conf.all.route_localnet=1 >/dev/null
     sysctl -w net.ipv4.conf.all.send_redirects=0 >/dev/null
     echo 0 > /proc/sys/net/ipv4/conf/all/rp_filter 2>/dev/null || true
-
-    if [ ! -c /dev/net/tun ]; then
-        log info "Creating /dev/net/tun"
-        mkdir -p /dev/net
-        mknod /dev/net/tun c 10 200 2>/dev/null || true
-        chmod 600 /dev/net/tun 2>/dev/null || true
-    fi
 
     log info "System configuration completed"
 }
 
 load_config() {
     export FAKE_CIDR="${FAKE_CIDR:-198.18.0.0/16}"
+    export TPROXY_PORT="${TPROXY_PORT:-1082}"
     export CLASH_WEB_PORT="${CLASH_WEB_PORT:-80}"
     export CLASH_WEB_PASSWORD="${CLASH_WEB_PASSWORD:-}"
     export SLEEPTIME="${SLEEPTIME:-30}"
     export SUBURL="${SUBURL:-}"
+    export BLOCK_QUIC="${BLOCK_QUIC:-true}"
     export DEFAULT_BACKEND_URL="${DEFAULT_BACKEND_URL:-window.location.origin}"
-    export TUN_STACK="${TUN_STACK:-mixed}"
-    export TUN_DEVICE="${TUN_DEVICE:-mihomo}"
-    export TUN_AUTO_ROUTE="${TUN_AUTO_ROUTE:-true}"
-    export TUN_AUTO_REDIRECT="${TUN_AUTO_REDIRECT:-true}"
-    export TUN_AUTO_DETECT_INTERFACE="${TUN_AUTO_DETECT_INTERFACE:-true}"
-    export TUN_STRICT_ROUTE="${TUN_STRICT_ROUTE:-true}"
-    export TUN_INET4_ADDRESS="${TUN_INET4_ADDRESS:-172.19.0.1/30}"
-    export TUN_MTU="${TUN_MTU:-9000}"
-    export TUN_GSO="${TUN_GSO:-true}"
-    export TUN_GSO_MAX_SIZE="${TUN_GSO_MAX_SIZE:-65536}"
-    export TUN_IPROUTE2_TABLE_INDEX="${TUN_IPROUTE2_TABLE_INDEX:-2022}"
-    export TUN_IPROUTE2_RULE_INDEX="${TUN_IPROUTE2_RULE_INDEX:-9000}"
-    export TUN_ENDPOINT_INDEPENDENT_NAT="${TUN_ENDPOINT_INDEPENDENT_NAT:-true}"
-    export TUN_UDP_TIMEOUT="${TUN_UDP_TIMEOUT:-300}"
 
     log info "Configuration loaded"
     log info "FakeIP CIDR: $FAKE_CIDR"
+    log info "TProxy Port: $TPROXY_PORT"
     log info "Clash Web Port: $CLASH_WEB_PORT"
-    log info "TUN Stack: $TUN_STACK"
-    log info "TUN Device: $TUN_DEVICE"
-    log info "TUN Auto Route: $TUN_AUTO_ROUTE"
-    log info "TUN Auto Redirect: $TUN_AUTO_REDIRECT"
-    log info "TUN Strict Route: $TUN_STRICT_ROUTE"
+    log info "Block QUIC: $BLOCK_QUIC"
     log info "Update Interval: $SLEEPTIME seconds"
     log info "Default Web UI backend: $DEFAULT_BACKEND_URL"
 }
@@ -121,22 +90,9 @@ generate_clash_config() {
     if [ -f "$base_yaml" ]; then
         log info "Generating Clash configuration from base.yaml"
         cp "$base_yaml" "$output_yaml"
-        replace_placeholder "fake_cidr" "$FAKE_CIDR" "$output_yaml"
-        replace_placeholder "clash_web_port" "$CLASH_WEB_PORT" "$output_yaml"
-        replace_placeholder "tun_stack" "$TUN_STACK" "$output_yaml"
-        replace_placeholder "tun_device" "$TUN_DEVICE" "$output_yaml"
-        replace_placeholder "tun_auto_route" "$TUN_AUTO_ROUTE" "$output_yaml"
-        replace_placeholder "tun_auto_redirect" "$TUN_AUTO_REDIRECT" "$output_yaml"
-        replace_placeholder "tun_auto_detect_interface" "$TUN_AUTO_DETECT_INTERFACE" "$output_yaml"
-        replace_placeholder "tun_strict_route" "$TUN_STRICT_ROUTE" "$output_yaml"
-        replace_placeholder "tun_inet4_address" "$TUN_INET4_ADDRESS" "$output_yaml"
-        replace_placeholder "tun_mtu" "$TUN_MTU" "$output_yaml"
-        replace_placeholder "tun_gso" "$TUN_GSO" "$output_yaml"
-        replace_placeholder "tun_gso_max_size" "$TUN_GSO_MAX_SIZE" "$output_yaml"
-        replace_placeholder "tun_iproute2_table_index" "$TUN_IPROUTE2_TABLE_INDEX" "$output_yaml"
-        replace_placeholder "tun_iproute2_rule_index" "$TUN_IPROUTE2_RULE_INDEX" "$output_yaml"
-        replace_placeholder "tun_endpoint_independent_nat" "$TUN_ENDPOINT_INDEPENDENT_NAT" "$output_yaml"
-        replace_placeholder "tun_udp_timeout" "$TUN_UDP_TIMEOUT" "$output_yaml"
+        sed -i "s|{fake_cidr}|$FAKE_CIDR|g" "$output_yaml"
+        sed -i "s|{tproxy_port}|$TPROXY_PORT|g" "$output_yaml"
+        sed -i "s|{clash_web_port}|$CLASH_WEB_PORT|g" "$output_yaml"
         if [ -n "$CLASH_WEB_PASSWORD" ]; then
             local escaped_secret
             escaped_secret="$(escape_sed_replacement "$CLASH_WEB_PASSWORD")"
@@ -211,6 +167,17 @@ start_clash() {
     return 1
 }
 
+apply_nft_rules() {
+    log info "Applying nftables rules..."
+    if ! command -v nft >/dev/null 2>&1; then
+        log error "nftables is not available"
+        return 1
+    fi
+
+    sh /opt/mihomo/scripts/nft_full.sh
+    log info "nftables rules applied successfully"
+}
+
 cleanup() {
     log info "Shutting down..."
     kill -- -$$ 2>/dev/null || true
@@ -229,6 +196,7 @@ main() {
     configure_web_ui
     generate_clash_config
     start_clash "${CLASH_CONFIG_DIR:-/etc/mihomo}/clash.yaml"
+    apply_nft_rules
 
     log info "========================================="
     log info "Mihomo startup completed!"
