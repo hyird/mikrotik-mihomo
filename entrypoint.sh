@@ -20,6 +20,14 @@ escape_js_string() {
     printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
 }
 
+curl_api() {
+    if [ -n "$CLASH_WEB_PASSWORD" ]; then
+        curl -s -H "Authorization: Bearer $CLASH_WEB_PASSWORD" "$@"
+    else
+        curl -s "$@"
+    fi
+}
+
 init_system() {
     log info "Initializing system configuration..."
 
@@ -35,7 +43,7 @@ load_config() {
     export FAKE_CIDR="${FAKE_CIDR:-198.18.0.0/16}"
     export TPROXY_PORT="${TPROXY_PORT:-1082}"
     export CLASH_WEB_PORT="${CLASH_WEB_PORT:-80}"
-    export CLASH_WEB_PASSWORD="${CLASH_WEB_PASSWORD:-clashpass}"
+    export CLASH_WEB_PASSWORD="${CLASH_WEB_PASSWORD:-}"
     export SLEEPTIME="${SLEEPTIME:-30}"
     export SUBURL="${SUBURL:-}"
     export BLOCK_QUIC="${BLOCK_QUIC:-true}"
@@ -96,9 +104,13 @@ generate_clash_config() {
         sed -i "s|{fake_cidr}|$FAKE_CIDR|g" "$output_yaml"
         sed -i "s|{tproxy_port}|$TPROXY_PORT|g" "$output_yaml"
         sed -i "s|{clash_web_port}|$CLASH_WEB_PORT|g" "$output_yaml"
-        local escaped_secret
-        escaped_secret="$(escape_sed_replacement "$CLASH_WEB_PASSWORD")"
-        sed -i "s|{clash_web_password}|$escaped_secret|g" "$output_yaml"
+        if [ -n "$CLASH_WEB_PASSWORD" ]; then
+            local escaped_secret
+            escaped_secret="$(escape_sed_replacement "$CLASH_WEB_PASSWORD")"
+            sed -i "s|{clash_web_password}|$escaped_secret|g" "$output_yaml"
+        else
+            sed -i '/^[[:space:]]*secret:[[:space:]]*{clash_web_password}[[:space:]]*$/d' "$output_yaml"
+        fi
 
         if [ -n "$SUBURL" ]; then
             local escaped_suburl
@@ -154,7 +166,7 @@ start_clash() {
 
     local attempt=0
     while [ "$attempt" -lt 30 ]; do
-        if curl -s -H "Authorization: Bearer $CLASH_WEB_PASSWORD" "http://127.0.0.1:$CLASH_WEB_PORT/api/version" >/dev/null 2>&1; then
+        if curl_api "http://127.0.0.1:$CLASH_WEB_PORT/api/version" >/dev/null 2>&1; then
             log info "Clash started successfully"
             return 0
         fi

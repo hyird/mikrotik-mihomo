@@ -4,15 +4,23 @@ set -uo pipefail
 CLASH_CONFIG_DIR="${CLASH_CONFIG_DIR:-/etc/config/clash}"
 CHECK_INTERVAL="${SLEEPTIME:-30}"
 CLASH_WEB_PORT="${CLASH_WEB_PORT:-80}"
-CLASH_WEB_PASSWORD="${CLASH_WEB_PASSWORD:-clashpass}"
+CLASH_WEB_PASSWORD="${CLASH_WEB_PASSWORD:-}"
+
+curl_api() {
+    if [ -n "$CLASH_WEB_PASSWORD" ]; then
+        curl -s -H "Authorization: Bearer $CLASH_WEB_PASSWORD" "$@"
+    else
+        curl -s "$@"
+    fi
+}
 
 api_version_ok() {
-    curl -s -H "Authorization: Bearer $CLASH_WEB_PASSWORD" "http://127.0.0.1:$CLASH_WEB_PORT/api/version" >/dev/null 2>&1
+    curl_api "http://127.0.0.1:$CLASH_WEB_PORT/api/version" >/dev/null 2>&1
 }
 
 reload_clash() {
     echo "[$(date '+%H:%M:%S')] Reloading Clash configuration..."
-    curl -s -X PUT -H "Authorization: Bearer $CLASH_WEB_PASSWORD" "http://127.0.0.1:$CLASH_WEB_PORT/api/configs" -d '{}' >/dev/null 2>&1 || return 1
+    curl_api -X PUT "http://127.0.0.1:$CLASH_WEB_PORT/api/configs" -d '{}' >/dev/null 2>&1 || return 1
     return 0
 }
 
