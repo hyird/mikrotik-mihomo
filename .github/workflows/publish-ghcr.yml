@@ -34,6 +34,9 @@ jobs:
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
+        with:
+          platforms: arm64,arm
+          cache-image: false
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -113,8 +116,8 @@ jobs:
 
           while IFS=$'\t' read -r platform digest manifest_size; do
             manifest_json="$(docker buildx imagetools inspect --raw "${IMAGE}@${digest}")"
-            layer_count="$(jq '[.layers[]? | select(.mediaType | test("layer"))] | length' <<< "$manifest_json")"
-            layer_bytes="$(jq '[.layers[]? | select(.mediaType | test("layer")) | .size] | add // 0' <<< "$manifest_json")"
+            layer_count="$(jq '.layers | length' <<< "$manifest_json")"
+            layer_bytes="$(jq '[.layers[]?.size] | add // 0' <<< "$manifest_json")"
             config_bytes="$(jq '.config.size // 0' <<< "$manifest_json")"
             meta_bytes=$((manifest_size + config_bytes))
             total_bytes=$((layer_bytes + meta_bytes))
