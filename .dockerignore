@@ -1,0 +1,7 @@
+.git
+.github
+.gitignore
+logs
+clash/clash.yaml
+clash/config.yaml
+**/*.log

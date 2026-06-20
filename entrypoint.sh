@@ -58,23 +58,12 @@ load_config() {
     log info "Default Web UI backend: $DEFAULT_BACKEND_URL"
 }
 
-sync_web_ui() {
-    local clash_config_dir="${CLASH_CONFIG_DIR:-/etc/config/clash}"
-    local bundled_ui_dir="/opt/ppgw/ui/xd"
+configure_web_ui() {
+    local clash_config_dir="${CLASH_CONFIG_DIR:-/etc/mihomo}"
     local target_ui_dir="$clash_config_dir/ui/xd"
-    local target_parent
-    target_parent="$(dirname "$target_ui_dir")"
 
-    mkdir -p "$target_parent"
-
-    if [ -d "$bundled_ui_dir" ]; then
-        if [ ! -f "$target_ui_dir/.metacubexd-ref" ] || ! cmp -s "$bundled_ui_dir/.metacubexd-ref" "$target_ui_dir/.metacubexd-ref"; then
-            log info "Installing MetaCubeXD web UI"
-            rm -rf "$target_ui_dir"
-            cp -a "$bundled_ui_dir" "$target_ui_dir"
-        fi
-    else
-        log warn "Bundled MetaCubeXD web UI not found"
+    if [ ! -d "$target_ui_dir" ]; then
+        log warn "MetaCubeXD web UI not found"
         mkdir -p "$target_ui_dir"
     fi
 
@@ -93,7 +82,7 @@ EOF
 }
 
 generate_clash_config() {
-    local clash_config_dir="${CLASH_CONFIG_DIR:-/etc/config/clash}"
+    local clash_config_dir="${CLASH_CONFIG_DIR:-/etc/mihomo}"
     local base_yaml="$clash_config_dir/base.yaml"
     local output_yaml="$clash_config_dir/clash.yaml"
     local fallback_yaml="$clash_config_dir/config.yaml"
@@ -149,7 +138,7 @@ generate_clash_config() {
 
 start_clash() {
     local config_path=$1
-    local clash_config_dir="${CLASH_CONFIG_DIR:-/etc/config/clash}"
+    local clash_config_dir="${CLASH_CONFIG_DIR:-/etc/mihomo}"
 
     if [ ! -f "$config_path" ]; then
         log error "Clash configuration file not found: $config_path"
@@ -185,7 +174,7 @@ apply_nft_rules() {
         return 1
     fi
 
-    bash /opt/ppgw/scripts/nft_full.sh
+    bash /opt/mihomo/scripts/nft_full.sh
     log info "nftables rules applied successfully"
 }
 
@@ -204,9 +193,9 @@ main() {
 
     init_system
     load_config
-    sync_web_ui
+    configure_web_ui
     generate_clash_config
-    start_clash "/etc/config/clash/clash.yaml"
+    start_clash "${CLASH_CONFIG_DIR:-/etc/mihomo}/clash.yaml"
     apply_nft_rules
 
     log info "========================================="
@@ -214,7 +203,7 @@ main() {
     log info "========================================="
 
     log info "Starting monitoring script..."
-    bash /opt/ppgw/scripts/watch.sh &
+    bash /opt/mihomo/scripts/watch.sh &
     wait || true
 }
 
