@@ -65,7 +65,7 @@ load_config() {
     export TUN_STACK="${TUN_STACK:-mixed}"
     export TUN_DEVICE="${TUN_DEVICE:-mihomo}"
     export TUN_AUTO_ROUTE="${TUN_AUTO_ROUTE:-true}"
-    export TUN_AUTO_REDIRECT="${TUN_AUTO_REDIRECT:-false}"
+    export TUN_AUTO_REDIRECT="${TUN_AUTO_REDIRECT:-true}"
     export TUN_AUTO_DETECT_INTERFACE="${TUN_AUTO_DETECT_INTERFACE:-true}"
     export TUN_STRICT_ROUTE="${TUN_STRICT_ROUTE:-true}"
     export TUN_INET4_ADDRESS="${TUN_INET4_ADDRESS:-172.19.0.1/30}"

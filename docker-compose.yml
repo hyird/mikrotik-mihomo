@@ -27,7 +27,7 @@ services:
       - TUN_STACK=mixed
       - TUN_DEVICE=mihomo
       - TUN_AUTO_ROUTE=true
-      - TUN_AUTO_REDIRECT=false
+      - TUN_AUTO_REDIRECT=true
       - TUN_AUTO_DETECT_INTERFACE=true
       - TUN_STRICT_ROUTE=true
       - TUN_INET4_ADDRESS=172.19.0.1/30
