@@ -78,7 +78,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          ref="${IMAGE}:sha-${GITHUB_SHA::7}"
+          ref="${IMAGE}:latest"
           index_json="$(docker buildx imagetools inspect --raw "$ref")"
           rows="$(
             jq -r '
