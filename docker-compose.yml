@@ -6,10 +6,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        MIHOMO_VERSION: v1.19.27
-        METACUBEXD_REF: 640e8cbc3472bfc913bfc3296df1f1fda0d607f3
-        COUNTRY_MMDB_URL: https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/country.mmdb
     container_name: mihomo
     hostname: mihomo
 

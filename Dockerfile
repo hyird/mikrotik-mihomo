@@ -2,12 +2,14 @@ FROM --platform=$BUILDPLATFORM alpine:3.22 AS assets
 
 ARG TARGETARCH
 ARG TARGETVARIANT
-ARG MIHOMO_VERSION=v1.19.27
-ARG METACUBEXD_REF=640e8cbc3472bfc913bfc3296df1f1fda0d607f3
+ARG MIHOMO_VERSION=latest
+ARG METACUBEXD_REF=refs/heads/gh-pages
 ARG COUNTRY_MMDB_URL=https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/country.mmdb
+ARG UPSTREAM_CACHE_BUST=manual
 
 RUN set -eux; \
     apk add --no-cache ca-certificates curl gzip unzip; \
+    echo "Upstream cache bust: $UPSTREAM_CACHE_BUST"; \
     mkdir -p \
         /rootfs/etc/mihomo/ui \
         /rootfs/opt/mihomo \
