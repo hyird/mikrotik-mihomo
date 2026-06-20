@@ -16,6 +16,10 @@ escape_sed_replacement() {
     printf '%s' "$1" | sed 's/[&|\\]/\\&/g'
 }
 
+escape_js_string() {
+    printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+}
+
 init_system() {
     log info "Initializing system configuration..."
 
@@ -35,6 +39,7 @@ load_config() {
     export SLEEPTIME="${SLEEPTIME:-30}"
     export SUBURL="${SUBURL:-}"
     export BLOCK_QUIC="${BLOCK_QUIC:-true}"
+    export DEFAULT_BACKEND_URL="${DEFAULT_BACKEND_URL:-window.location.origin}"
 
     log info "Configuration loaded"
     log info "FakeIP CIDR: $FAKE_CIDR"
@@ -42,6 +47,41 @@ load_config() {
     log info "Clash Web Port: $CLASH_WEB_PORT"
     log info "Block QUIC: $BLOCK_QUIC"
     log info "Update Interval: $SLEEPTIME seconds"
+    log info "Default Web UI backend: $DEFAULT_BACKEND_URL"
+}
+
+sync_web_ui() {
+    local clash_config_dir="${CLASH_CONFIG_DIR:-/etc/config/clash}"
+    local bundled_ui_dir="/opt/ppgw/ui/xd"
+    local target_ui_dir="$clash_config_dir/ui/xd"
+    local target_parent
+    target_parent="$(dirname "$target_ui_dir")"
+
+    mkdir -p "$target_parent"
+
+    if [ -d "$bundled_ui_dir" ]; then
+        if [ ! -f "$target_ui_dir/.metacubexd-ref" ] || ! cmp -s "$bundled_ui_dir/.metacubexd-ref" "$target_ui_dir/.metacubexd-ref"; then
+            log info "Installing MetaCubeXD web UI"
+            rm -rf "$target_ui_dir"
+            cp -a "$bundled_ui_dir" "$target_ui_dir"
+        fi
+    else
+        log warn "Bundled MetaCubeXD web UI not found"
+        mkdir -p "$target_ui_dir"
+    fi
+
+    local default_backend_js
+    if [ "$DEFAULT_BACKEND_URL" = "window.location.origin" ]; then
+        default_backend_js="window.location.origin"
+    else
+        default_backend_js="\"$(escape_js_string "$DEFAULT_BACKEND_URL")\""
+    fi
+
+    cat > "$target_ui_dir/config.js" << EOF
+window.__METACUBEXD_CONFIG__ = {
+  defaultBackendURL: $default_backend_js,
+}
+EOF
 }
 
 generate_clash_config() {
@@ -152,6 +192,7 @@ main() {
 
     init_system
     load_config
+    sync_web_ui
     generate_clash_config
     start_clash "/etc/config/clash/clash.yaml"
     apply_nft_rules
