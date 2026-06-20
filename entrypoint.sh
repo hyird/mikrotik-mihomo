@@ -1,5 +1,5 @@
-#!/bin/bash
-set -euo pipefail
+#!/bin/sh
+set -eu
 
 log() {
     local level=$1
@@ -145,7 +145,7 @@ start_clash() {
         return 1
     fi
 
-    if pgrep -f "clash" >/dev/null 2>&1; then
+    if pidof clash >/dev/null 2>&1; then
         log warn "Clash is already running"
         return 0
     fi
@@ -174,7 +174,7 @@ apply_nft_rules() {
         return 1
     fi
 
-    bash /opt/mihomo/scripts/nft_full.sh
+    sh /opt/mihomo/scripts/nft_full.sh
     log info "nftables rules applied successfully"
 }
 
@@ -203,7 +203,7 @@ main() {
     log info "========================================="
 
     log info "Starting monitoring script..."
-    bash /opt/mihomo/scripts/watch.sh &
+    sh /opt/mihomo/scripts/watch.sh &
     wait || true
 }
 

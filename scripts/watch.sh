@@ -1,5 +1,5 @@
-#!/bin/bash
-set -uo pipefail
+#!/bin/sh
+set -u
 
 CLASH_CONFIG_DIR="${CLASH_CONFIG_DIR:-/etc/mihomo}"
 CHECK_INTERVAL="${SLEEPTIME:-30}"
@@ -35,7 +35,9 @@ start_clash_only() {
         return 1
     fi
 
-    pkill -f "clash" 2>/dev/null || true
+    for pid in $(pidof clash 2>/dev/null || true); do
+        kill "$pid" 2>/dev/null || true
+    done
     sleep 2
     clash -d "$CLASH_CONFIG_DIR" -f "$config_file" &
 

@@ -67,5 +67,60 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          provenance: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Print pushed image size
+        shell: bash
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}
+        run: |
+          set -euo pipefail
+
+          ref="${IMAGE}:sha-${GITHUB_SHA::7}"
+          index_json="$(docker buildx imagetools inspect --raw "$ref")"
+          rows="$(
+            jq -r '
+              .manifests[]
+              | select(.platform.os != "unknown" and .platform.architecture != "unknown")
+              | [
+                  (.platform.os + "/" + .platform.architecture + (if .platform.variant then "/" + .platform.variant else "" end)),
+                  .digest,
+                  (.size // 0)
+                ]
+              | @tsv
+            ' <<< "$index_json"
+          )"
+
+          if [ -z "$rows" ]; then
+            echo "No platform manifests found for $ref" >&2
+            exit 1
+          fi
+
+          {
+            echo "## Image size"
+            echo
+            echo "Image: \`$ref\`"
+            echo
+            echo "| Platform | Layers | Compressed layers | Manifest + config | Total |"
+            echo "|---|---:|---:|---:|---:|"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          printf '%-18s %8s %18s %18s %18s\n' "PLATFORM" "LAYERS" "LAYER SIZE" "META SIZE" "TOTAL"
+
+          while IFS=$'\t' read -r platform digest manifest_size; do
+            manifest_json="$(docker buildx imagetools inspect --raw "${IMAGE}@${digest}")"
+            layer_count="$(jq '[.layers[]? | select(.mediaType | test("layer"))] | length' <<< "$manifest_json")"
+            layer_bytes="$(jq '[.layers[]? | select(.mediaType | test("layer")) | .size] | add // 0' <<< "$manifest_json")"
+            config_bytes="$(jq '.config.size // 0' <<< "$manifest_json")"
+            meta_bytes=$((manifest_size + config_bytes))
+            total_bytes=$((layer_bytes + meta_bytes))
+
+            layer_size="$(numfmt --to=iec-i --suffix=B "$layer_bytes")"
+            meta_size="$(numfmt --to=iec-i --suffix=B "$meta_bytes")"
+            total_size="$(numfmt --to=iec-i --suffix=B "$total_bytes")"
+
+            printf '%-18s %8s %18s %18s %18s\n' "$platform" "$layer_count" "$layer_size" "$meta_size" "$total_size"
+            echo "| \`$platform\` | $layer_count | $layer_size | $meta_size | $total_size |" >> "$GITHUB_STEP_SUMMARY"
+          done <<< "$rows"
