@@ -20,6 +20,30 @@ escape_js_string() {
     printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
 }
 
+detect_backend_url() {
+    local ip_addr
+    local backend_url
+
+    ip_addr="$(ip -4 route get 1.1.1.1 2>/dev/null | sed -n 's/.* src \([0-9.]*\).*/\1/p' | head -n 1)"
+    if [ -z "$ip_addr" ]; then
+        ip_addr="$(hostname -i 2>/dev/null | tr ' ' '\n' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | grep -v '^127\.' | head -n 1 || true)"
+    fi
+
+    if [ -z "$ip_addr" ]; then
+        log warn "Unable to detect backend IP, falling back to window.location.origin"
+        printf '%s' "window.location.origin"
+        return 0
+    fi
+
+    if [ "$CLASH_WEB_PORT" = "80" ]; then
+        backend_url="http://$ip_addr"
+    else
+        backend_url="http://$ip_addr:$CLASH_WEB_PORT"
+    fi
+
+    printf '%s' "$backend_url"
+}
+
 curl_api() {
     if [ -n "$CLASH_WEB_PASSWORD" ]; then
         curl -s -H "Authorization: Bearer $CLASH_WEB_PASSWORD" "$@"
@@ -47,7 +71,11 @@ load_config() {
     export SLEEPTIME="${SLEEPTIME:-30}"
     export SUBURL="${SUBURL:-}"
     export BLOCK_QUIC="${BLOCK_QUIC:-true}"
-    export DEFAULT_BACKEND_URL="${DEFAULT_BACKEND_URL:-window.location.origin}"
+    export DEFAULT_BACKEND_URL="${DEFAULT_BACKEND_URL:-auto}"
+    if [ -z "$DEFAULT_BACKEND_URL" ] || [ "$DEFAULT_BACKEND_URL" = "auto" ]; then
+        DEFAULT_BACKEND_URL="$(detect_backend_url)"
+        export DEFAULT_BACKEND_URL
+    fi
 
     log info "Configuration loaded"
     log info "FakeIP CIDR: $FAKE_CIDR"

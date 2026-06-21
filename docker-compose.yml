@@ -23,7 +23,7 @@ services:
       - TPROXY_PORT=1082
       - BLOCK_QUIC=true
       - CLASH_WEB_PORT=80
-      - DEFAULT_BACKEND_URL=window.location.origin
+      - DEFAULT_BACKEND_URL=auto
       - SLEEPTIME=30
       - SUBURL=https://example.com/subscribe
       - TZ=Asia/Shanghai
