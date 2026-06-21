@@ -99,8 +99,6 @@ jobs:
           fi
 
           {
-            echo "## Image size"
-            echo
             echo "Image: \`$ref\`"
             echo
             echo "| Platform | Layers | Compressed layers | Manifest + config | Total |"
