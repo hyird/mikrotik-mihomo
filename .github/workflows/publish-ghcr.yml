@@ -18,7 +18,6 @@ concurrency:
 
 env:
   REGISTRY: ghcr.io
-  DOCKER_BUILD_SUMMARY: "false"
 
 jobs:
   publish:
