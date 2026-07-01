@@ -47,13 +47,7 @@ detect_backend_url() {
     printf '%s' "$backend_url"
 }
 
-curl_api() {
-    if [ -n "$CLASH_WEB_PASSWORD" ]; then
-        curl -s -H "Authorization: Bearer $CLASH_WEB_PASSWORD" "$@"
-    else
-        curl -s "$@"
-    fi
-}
+. /opt/mihomo/scripts/clash_api.sh
 
 init_system() {
     log info "Initializing system configuration..."
@@ -186,7 +180,7 @@ start_clash() {
 
     local attempt=0
     while [ "$attempt" -lt 30 ]; do
-        if curl_api "http://127.0.0.1:$CLASH_WEB_PORT/api/version" >/dev/null 2>&1; then
+        if clash_api "http://127.0.0.1:$CLASH_WEB_PORT/api/version" >/dev/null 2>&1; then
             log info "Clash started successfully"
             return 0
         fi

@@ -6,21 +6,15 @@ CHECK_INTERVAL="${SLEEPTIME:-30}"
 CLASH_WEB_PORT="${CLASH_WEB_PORT:-80}"
 CLASH_WEB_PASSWORD="${CLASH_WEB_PASSWORD:-}"
 
-curl_api() {
-    if [ -n "$CLASH_WEB_PASSWORD" ]; then
-        curl -s -H "Authorization: Bearer $CLASH_WEB_PASSWORD" "$@"
-    else
-        curl -s "$@"
-    fi
-}
+. /opt/mihomo/scripts/clash_api.sh
 
 api_version_ok() {
-    curl_api "http://127.0.0.1:$CLASH_WEB_PORT/api/version" >/dev/null 2>&1
+    clash_api "http://127.0.0.1:$CLASH_WEB_PORT/api/version" >/dev/null 2>&1
 }
 
 reload_clash() {
     echo "[$(date '+%H:%M:%S')] Reloading Clash configuration..."
-    curl_api -X PUT "http://127.0.0.1:$CLASH_WEB_PORT/api/configs" -d '{}' >/dev/null 2>&1 || return 1
+    clash_api -X PUT "http://127.0.0.1:$CLASH_WEB_PORT/api/configs" -d '{}' >/dev/null 2>&1 || return 1
     return 0
 }
 

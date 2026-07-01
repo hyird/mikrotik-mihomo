@@ -1,6 +1,9 @@
 .git
 .github
 .gitignore
+.agents
+.codex
+.codegraph
 logs
 clash/clash.yaml
 clash/config.yaml

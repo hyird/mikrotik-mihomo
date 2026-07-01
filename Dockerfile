@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM alpine:3.22 AS assets
+FROM --platform=$BUILDPLATFORM alpine:latest AS assets
 
 ARG TARGETARCH
 ARG TARGETVARIANT
@@ -6,9 +6,10 @@ ARG MIHOMO_VERSION=latest
 ARG METACUBEXD_REF=refs/heads/gh-pages
 ARG COUNTRY_MMDB_URL=https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/country.mmdb
 ARG UPSTREAM_CACHE_BUST=manual
+ARG UPX_COMPRESS=true
 
 RUN set -eux; \
-    apk add --no-cache ca-certificates curl gzip unzip; \
+    apk add --no-cache ca-certificates-bundle curl upx; \
     echo "Upstream cache bust: $UPSTREAM_CACHE_BUST"; \
     mkdir -p \
         /rootfs/etc/mihomo/ui \
@@ -26,6 +27,9 @@ RUN set -eux; \
     curl -fsSL "https://github.com/MetaCubeX/mihomo/releases/download/${MIHOMO_VERSION}/${MIHOMO_ASSET}" -o /tmp/mihomo.gz; \
     gunzip /tmp/mihomo.gz; \
     install -m 0755 /tmp/mihomo /rootfs/usr/local/bin/clash; \
+    if [ "$UPX_COMPRESS" = "true" ]; then \
+        upx --best --lzma /rootfs/usr/local/bin/clash; \
+    fi; \
     curl -fsSL "https://github.com/MetaCubeX/metacubexd/archive/${METACUBEXD_REF}.zip" -o /tmp/ui.zip; \
     unzip -q /tmp/ui.zip -d /tmp/ui; \
     mv "$(find /tmp/ui -mindepth 1 -maxdepth 1 -type d | head -n 1)" /rootfs/etc/mihomo/ui/xd; \
@@ -39,22 +43,31 @@ COPY --chmod=755 scripts/ /rootfs/opt/mihomo/scripts/
 COPY clash/ /rootfs/etc/mihomo/
 COPY --chmod=755 entrypoint.sh /rootfs/opt/mihomo/entrypoint.sh
 
-FROM alpine:3.22
+FROM alpine:latest
+
+ARG RUNTIME_TZ=Asia/Shanghai
 
 RUN set -eux; \
     apk add --no-cache \
-        ca-certificates \
-        curl \
-        iproute2 \
+        ca-certificates-bundle \
+        iproute2-minimal \
         nftables \
-        tini \
-        tzdata
+        tini; \
+    apk add --no-cache --virtual .tzdata tzdata; \
+    tz_dir="$(dirname "$RUNTIME_TZ")"; \
+    cp "/usr/share/zoneinfo/$RUNTIME_TZ" /tmp/localtime; \
+    apk del .tzdata; \
+    mkdir -p "/usr/share/zoneinfo/$tz_dir"; \
+    mv /tmp/localtime "/usr/share/zoneinfo/$RUNTIME_TZ"; \
+    ln -sf "/usr/share/zoneinfo/$RUNTIME_TZ" /etc/localtime; \
+    rm -rf /tmp/* /var/cache/apk/*
 
 COPY --from=assets /rootfs/ /
 
 ENV PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/mihomo/scripts" \
     CLASH_CONFIG="/etc/mihomo" \
-    CLASH_HOME="/etc/mihomo"
+    CLASH_HOME="/etc/mihomo" \
+    TZ="${RUNTIME_TZ}"
 
 WORKDIR /opt/mihomo
 
