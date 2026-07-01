@@ -47,8 +47,6 @@ detect_backend_url() {
     printf '%s' "$backend_url"
 }
 
-. /opt/mihomo/scripts/clash_api.sh
-
 init_system() {
     log info "Initializing system configuration..."
 
@@ -164,32 +162,24 @@ generate_clash_config() {
 start_clash() {
     local config_path=$1
     local clash_config_dir="${CLASH_CONFIG_DIR:-/etc/mihomo}"
+    local existing_pid
 
     if [ ! -f "$config_path" ]; then
         log error "Clash configuration file not found: $config_path"
         return 1
     fi
 
-    if pidof clash >/dev/null 2>&1; then
+    existing_pid="$(pidof clash 2>/dev/null | awk '{print $1}' || true)"
+    if [ -n "$existing_pid" ]; then
         log warn "Clash is already running"
+        CLASH_PID="$existing_pid"
         return 0
     fi
 
     log info "Starting Clash core..."
     clash -d "$clash_config_dir" -f "$config_path" &
-
-    local attempt=0
-    while [ "$attempt" -lt 30 ]; do
-        if clash_api "http://127.0.0.1:$CLASH_WEB_PORT/api/version" >/dev/null 2>&1; then
-            log info "Clash started successfully"
-            return 0
-        fi
-        attempt=$((attempt + 1))
-        sleep 1
-    done
-
-    log error "Clash startup failed"
-    return 1
+    CLASH_PID="$!"
+    log info "Clash process started with PID $CLASH_PID"
 }
 
 apply_nft_rules() {
@@ -227,9 +217,7 @@ main() {
     log info "Mihomo startup completed!"
     log info "========================================="
 
-    log info "Starting monitoring script..."
-    sh /opt/mihomo/scripts/watch.sh &
-    wait || true
+    wait "$CLASH_PID"
 }
 
 main "$@"
