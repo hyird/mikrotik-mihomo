@@ -11,6 +11,13 @@ DNS_PORT="53"
 TPROXY_PORT="${TPROXY_PORT:-1082}"
 BLOCK_QUIC="${BLOCK_QUIC:-true}"
 
+should_emit_info() {
+    case "${LOG_LEVEL:-error}" in
+        debug|info) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
 /usr/sbin/nft -f - << EOF
 flush ruleset
 
@@ -63,4 +70,6 @@ ip rule add fwmark 1 lookup 100 2>/dev/null || ip rule add fwmark 1 table 100 2>
 ip route add local default dev lo table 100 2>/dev/null || true
 ip route add default via 127.0.0.1 table 100 2>/dev/null || true
 
-echo "TCP+UDP rules applied successfully"
+if should_emit_info; then
+    echo "TCP+UDP rules applied successfully"
+fi

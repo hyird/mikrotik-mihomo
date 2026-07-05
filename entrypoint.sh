@@ -1,15 +1,52 @@
 #!/bin/sh
 set -eu
 
+normalize_log_level() {
+    case "$1" in
+        debug) printf '%s' "debug" ;;
+        info) printf '%s' "info" ;;
+        warn|warning) printf '%s' "warning" ;;
+        error) printf '%s' "error" ;;
+        silent) printf '%s' "silent" ;;
+        *) printf '%s' "error" ;;
+    esac
+}
+
+log_level_rank() {
+    case "$1" in
+        debug) printf '%s' "0" ;;
+        info) printf '%s' "1" ;;
+        warn|warning) printf '%s' "2" ;;
+        error) printf '%s' "3" ;;
+        silent) printf '%s' "4" ;;
+        *) return 1 ;;
+    esac
+}
+
 log() {
     local level=$1
+    local threshold
+    local level_rank
+    local threshold_rank
+    local tag
     shift
+
+    threshold="$(normalize_log_level "${LOG_LEVEL:-error}")"
+    level_rank="$(log_level_rank "$level" 2>/dev/null || printf '%s' "1")"
+    threshold_rank="$(log_level_rank "$threshold" 2>/dev/null || printf '%s' "3")"
+    if [ "$level_rank" -lt "$threshold_rank" ]; then
+        return 0
+    fi
+
     case "$level" in
-        info) echo "[$(date +'%H:%M:%S')] [INFO] $*" >&2 ;;
-        warn) echo "[$(date +'%H:%M:%S')] [WARN] $*" >&2 ;;
-        error) echo "[$(date +'%H:%M:%S')] [ERROR] $*" >&2 ;;
-        *) echo "[$(date +'%H:%M:%S')] [LOG] $*" >&2 ;;
+        debug) tag="DEBUG" ;;
+        info) tag="INFO" ;;
+        warn|warning) tag="WARN" ;;
+        error) tag="ERROR" ;;
+        *) tag="LOG" ;;
     esac
+
+    echo "[$(date +'%H:%M:%S')] [$tag] $*" >&2
 }
 
 escape_sed_replacement() {
@@ -66,6 +103,7 @@ load_config() {
     export SLEEPTIME="${SLEEPTIME:-30}"
     export SUBURL="${SUBURL:-}"
     export BLOCK_QUIC="${BLOCK_QUIC:-true}"
+    export LOG_LEVEL="$(normalize_log_level "${LOG_LEVEL:-error}")"
     export DEFAULT_BACKEND_URL="${DEFAULT_BACKEND_URL:-auto}"
     if [ -z "$DEFAULT_BACKEND_URL" ] || [ "$DEFAULT_BACKEND_URL" = "auto" ]; then
         DEFAULT_BACKEND_URL="$(detect_backend_url)"
@@ -77,6 +115,7 @@ load_config() {
     log info "TProxy Port: $TPROXY_PORT"
     log info "Clash Web Port: $CLASH_WEB_PORT"
     log info "Block QUIC: $BLOCK_QUIC"
+    log info "Log Level: $LOG_LEVEL"
     log info "Update Interval: $SLEEPTIME seconds"
     log info "Default Web UI backend: $DEFAULT_BACKEND_URL"
 }
@@ -116,6 +155,7 @@ generate_clash_config() {
         sed -i "s|{fake_cidr}|$FAKE_CIDR|g" "$output_yaml"
         sed -i "s|{tproxy_port}|$TPROXY_PORT|g" "$output_yaml"
         sed -i "s|{clash_web_port}|$CLASH_WEB_PORT|g" "$output_yaml"
+        sed -i "s|{log_level}|$LOG_LEVEL|g" "$output_yaml"
         if [ -n "$CLASH_WEB_PASSWORD" ]; then
             local escaped_secret
             escaped_secret="$(escape_sed_replacement "$CLASH_WEB_PASSWORD")"

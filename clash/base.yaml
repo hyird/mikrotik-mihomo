@@ -3,7 +3,7 @@ tproxy-port: {tproxy_port}
 allow-lan: true
 bind-address: 0.0.0.0
 mode: rule
-log-level: info
+log-level: {log_level}
 unified-delay: true
 
 dns:
