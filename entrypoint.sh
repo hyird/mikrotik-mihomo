@@ -97,12 +97,10 @@ init_system() {
 
 load_config() {
     export FAKE_CIDR="${FAKE_CIDR:-198.18.0.0/16}"
-    export TPROXY_PORT="${TPROXY_PORT:-1082}"
     export CLASH_WEB_PORT="${CLASH_WEB_PORT:-80}"
     export CLASH_WEB_PASSWORD="${CLASH_WEB_PASSWORD:-}"
     export SLEEPTIME="${SLEEPTIME:-30}"
     export SUBURL="${SUBURL:-}"
-    export BLOCK_QUIC="${BLOCK_QUIC:-true}"
     export LOG_LEVEL="$(normalize_log_level "${LOG_LEVEL:-error}")"
     export DEFAULT_BACKEND_URL="${DEFAULT_BACKEND_URL:-auto}"
     if [ -z "$DEFAULT_BACKEND_URL" ] || [ "$DEFAULT_BACKEND_URL" = "auto" ]; then
@@ -112,9 +110,7 @@ load_config() {
 
     log info "Configuration loaded"
     log info "FakeIP CIDR: $FAKE_CIDR"
-    log info "TProxy Port: $TPROXY_PORT"
     log info "Clash Web Port: $CLASH_WEB_PORT"
-    log info "Block QUIC: $BLOCK_QUIC"
     log info "Log Level: $LOG_LEVEL"
     log info "Update Interval: $SLEEPTIME seconds"
     log info "Default Web UI backend: $DEFAULT_BACKEND_URL"
@@ -153,7 +149,6 @@ generate_clash_config() {
         log info "Generating Clash configuration from base.yaml"
         cp "$base_yaml" "$output_yaml"
         sed -i "s|{fake_cidr}|$FAKE_CIDR|g" "$output_yaml"
-        sed -i "s|{tproxy_port}|$TPROXY_PORT|g" "$output_yaml"
         sed -i "s|{clash_web_port}|$CLASH_WEB_PORT|g" "$output_yaml"
         sed -i "s|{log_level}|$LOG_LEVEL|g" "$output_yaml"
         if [ -n "$CLASH_WEB_PASSWORD" ]; then
@@ -222,17 +217,6 @@ start_clash() {
     log info "Clash process started with PID $CLASH_PID"
 }
 
-apply_nft_rules() {
-    log info "Applying nftables rules..."
-    if ! command -v nft >/dev/null 2>&1; then
-        log error "nftables is not available"
-        return 1
-    fi
-
-    sh /opt/mihomo/scripts/nft_full.sh
-    log info "nftables rules applied successfully"
-}
-
 cleanup() {
     log info "Shutting down..."
     kill -- -$$ 2>/dev/null || true
@@ -251,7 +235,6 @@ main() {
     configure_web_ui
     generate_clash_config
     start_clash "${CLASH_CONFIG_DIR:-/etc/mihomo}/clash.yaml"
-    apply_nft_rules
 
     log info "========================================="
     log info "Mihomo startup completed!"

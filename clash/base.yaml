@@ -1,10 +1,18 @@
 mixed-port: 7897
-tproxy-port: {tproxy_port}
 allow-lan: true
 bind-address: 0.0.0.0
 mode: rule
 log-level: {log_level}
 unified-delay: true
+
+tun:
+  enable: true
+  stack: system
+  device: Mihomo
+  mtu: 1500
+  auto-route: true
+  auto-redirect: true
+  auto-detect-interface: true
 
 dns:
   enable: true
