@@ -39,7 +39,6 @@ RUN set -eux; \
     ln -sf country.mmdb /rootfs/etc/mihomo/Country.mmdb; \
     rm -rf /tmp/mihomo /tmp/ui /tmp/ui.zip
 
-COPY --chmod=755 scripts/ /rootfs/opt/mihomo/scripts/
 COPY clash/ /rootfs/etc/mihomo/
 COPY --chmod=755 entrypoint.sh /rootfs/opt/mihomo/entrypoint.sh
 
