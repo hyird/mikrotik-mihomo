@@ -75,6 +75,7 @@ proxy-groups:
       - node
 
 rules:
+  - "AND,((NETWORK,UDP),(DST-PORT,443)),REJECT"
   - "DOMAIN-SUFFIX,{suburl_domain},DIRECT"
   - "GEOIP,CN,DIRECT"
   - "MATCH,Proxy"
