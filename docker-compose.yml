@@ -24,6 +24,7 @@ services:
       - DEFAULT_BACKEND_URL=auto
       - LOG_LEVEL=error
       - SLEEPTIME=30
+      - BLOCK_QUIC=false
       - SUBURL=https://example.com/subscribe
       - TZ=Asia/Shanghai
 

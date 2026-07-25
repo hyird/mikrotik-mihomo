@@ -75,6 +75,7 @@ proxy-groups:
       - node
 
 rules:
+  {block_quic_rule}
   - "DOMAIN-SUFFIX,{suburl_domain},DIRECT"
   - "GEOIP,CN,DIRECT"
   - "MATCH,Proxy"
