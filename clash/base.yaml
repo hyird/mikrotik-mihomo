@@ -7,7 +7,7 @@ unified-delay: true
 
 tun:
   enable: true
-  stack: system
+  stack: mixed
   device: Mihomo
   mtu: 1500
   auto-route: true
