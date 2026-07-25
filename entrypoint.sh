@@ -95,13 +95,41 @@ init_system() {
     log info "System configuration completed"
 }
 
+clear_quic_filter() {
+    while iptables -C FORWARD -i eth0 -p udp --dport 443 \
+        -j REJECT --reject-with icmp-port-unreachable >/dev/null 2>&1; do
+        iptables -D FORWARD -i eth0 -p udp --dport 443 \
+            -j REJECT --reject-with icmp-port-unreachable >/dev/null 2>&1 || break
+    done
+    while iptables -C FORWARD -i eth0 -p udp --dport 443 -j DROP >/dev/null 2>&1; do
+        iptables -D FORWARD -i eth0 -p udp --dport 443 -j DROP >/dev/null 2>&1 || break
+    done
+}
+
+configure_quic_filter() {
+    clear_quic_filter
+
+    case "$(printf '%s' "$BLOCK_QUIC" | tr '[:upper:]' '[:lower:]')" in
+        1|true|yes|on)
+            if ! iptables -I FORWARD 1 -i eth0 -p udp --dport 443 \
+                -j REJECT --reject-with icmp-port-unreachable; then
+                log warn "iptables REJECT is unavailable, falling back to DROP"
+                iptables -I FORWARD 1 -i eth0 -p udp --dport 443 -j DROP
+            fi
+            log info "QUIC blocking enabled on incoming eth0 traffic through iptables"
+            ;;
+        *)
+            log info "QUIC blocking disabled"
+            ;;
+    esac
+}
+
 load_config() {
     export FAKE_CIDR="${FAKE_CIDR:-198.18.0.0/16}"
     export CLASH_WEB_PORT="${CLASH_WEB_PORT:-80}"
     export CLASH_WEB_PASSWORD="${CLASH_WEB_PASSWORD:-}"
-    export SLEEPTIME="${SLEEPTIME:-30}"
     export SUBURL="${SUBURL:-}"
-    export BLOCK_QUIC="${BLOCK_QUIC:-false}"
+    export BLOCK_QUIC="${BLOCK_QUIC:-true}"
     export LOG_LEVEL="$(normalize_log_level "${LOG_LEVEL:-error}")"
     export DEFAULT_BACKEND_URL="${DEFAULT_BACKEND_URL:-auto}"
     if [ -z "$DEFAULT_BACKEND_URL" ] || [ "$DEFAULT_BACKEND_URL" = "auto" ]; then
@@ -113,8 +141,7 @@ load_config() {
     log info "FakeIP CIDR: $FAKE_CIDR"
     log info "Clash Web Port: $CLASH_WEB_PORT"
     log info "Log Level: $LOG_LEVEL"
-    log info "Update Interval: $SLEEPTIME seconds"
-    log info "Block QUIC: $BLOCK_QUIC"
+    log info "Block QUIC with iptables: $BLOCK_QUIC"
     log info "Default Web UI backend: $DEFAULT_BACKEND_URL"
 }
 
@@ -153,14 +180,6 @@ generate_clash_config() {
         sed -i "s|{fake_cidr}|$FAKE_CIDR|g" "$output_yaml"
         sed -i "s|{clash_web_port}|$CLASH_WEB_PORT|g" "$output_yaml"
         sed -i "s|{log_level}|$LOG_LEVEL|g" "$output_yaml"
-        case "$(printf '%s' "$BLOCK_QUIC" | tr '[:upper:]' '[:lower:]')" in
-            1|true|yes|on)
-                sed -i 's|{block_quic_rule}|- "AND,((NETWORK,UDP),(DST-PORT,443)),REJECT"|' "$output_yaml"
-                ;;
-            *)
-                sed -i '/{block_quic_rule}/d' "$output_yaml"
-                ;;
-        esac
         if [ -n "$CLASH_WEB_PASSWORD" ]; then
             local escaped_secret
             escaped_secret="$(escape_sed_replacement "$CLASH_WEB_PASSWORD")"
@@ -233,6 +252,7 @@ cleanup() {
     exit 0
 }
 
+trap clear_quic_filter EXIT
 trap cleanup SIGTERM SIGINT
 
 main() {
@@ -242,6 +262,7 @@ main() {
 
     init_system
     load_config
+    configure_quic_filter
     configure_web_ui
     generate_clash_config
     start_clash "${CLASH_CONFIG_DIR:-/etc/mihomo}/clash.yaml"
