@@ -23,7 +23,6 @@ services:
       - CLASH_WEB_PORT=80
       - DEFAULT_BACKEND_URL=auto
       - LOG_LEVEL=error
-      - BLOCK_QUIC=true
       - SUBURL=https://example.com/subscribe
       - TZ=Asia/Shanghai
 

@@ -109,19 +109,13 @@ clear_quic_filter() {
 configure_quic_filter() {
     clear_quic_filter
 
-    case "$(printf '%s' "$BLOCK_QUIC" | tr '[:upper:]' '[:lower:]')" in
-        1|true|yes|on)
-            if ! iptables -I FORWARD 1 -i eth0 -p udp --dport 443 \
-                -j REJECT --reject-with icmp-port-unreachable; then
-                log warn "iptables REJECT is unavailable, falling back to DROP"
-                iptables -I FORWARD 1 -i eth0 -p udp --dport 443 -j DROP
-            fi
-            log info "QUIC blocking enabled on incoming eth0 traffic through iptables"
-            ;;
-        *)
-            log info "QUIC blocking disabled"
-            ;;
-    esac
+    # Always block standard HTTP/3 (QUIC) traffic on UDP port 443.
+    if ! iptables -I FORWARD 1 -i eth0 -p udp --dport 443 \
+        -j REJECT --reject-with icmp-port-unreachable; then
+        log warn "iptables REJECT is unavailable, falling back to DROP"
+        iptables -I FORWARD 1 -i eth0 -p udp --dport 443 -j DROP
+    fi
+    log info "HTTP/3 (QUIC) blocking enabled on incoming eth0 UDP/443 traffic through iptables"
 }
 
 load_config() {
@@ -129,7 +123,6 @@ load_config() {
     export CLASH_WEB_PORT="${CLASH_WEB_PORT:-80}"
     export CLASH_WEB_PASSWORD="${CLASH_WEB_PASSWORD:-}"
     export SUBURL="${SUBURL:-}"
-    export BLOCK_QUIC="${BLOCK_QUIC:-true}"
     export LOG_LEVEL="$(normalize_log_level "${LOG_LEVEL:-error}")"
     export DEFAULT_BACKEND_URL="${DEFAULT_BACKEND_URL:-auto}"
     if [ -z "$DEFAULT_BACKEND_URL" ] || [ "$DEFAULT_BACKEND_URL" = "auto" ]; then
@@ -141,7 +134,6 @@ load_config() {
     log info "FakeIP CIDR: $FAKE_CIDR"
     log info "Clash Web Port: $CLASH_WEB_PORT"
     log info "Log Level: $LOG_LEVEL"
-    log info "Block QUIC with iptables: $BLOCK_QUIC"
     log info "Default Web UI backend: $DEFAULT_BACKEND_URL"
 }
 
