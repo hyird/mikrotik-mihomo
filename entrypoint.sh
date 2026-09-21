@@ -95,27 +95,30 @@ init_system() {
     log info "System configuration completed"
 }
 
+delete_quic_filter_rule() {
+    while iptables -C FORWARD "$@" >/dev/null 2>&1; do
+        iptables -D FORWARD "$@" >/dev/null 2>&1 || break
+    done
+}
+
 clear_quic_filter() {
-    while iptables -C FORWARD -i eth0 -p udp --dport 443 \
-        -j REJECT --reject-with icmp-port-unreachable >/dev/null 2>&1; do
-        iptables -D FORWARD -i eth0 -p udp --dport 443 \
-            -j REJECT --reject-with icmp-port-unreachable >/dev/null 2>&1 || break
-    done
-    while iptables -C FORWARD -i eth0 -p udp --dport 443 -j DROP >/dev/null 2>&1; do
-        iptables -D FORWARD -i eth0 -p udp --dport 443 -j DROP >/dev/null 2>&1 || break
-    done
+    delete_quic_filter_rule -p udp --dport 443 -j REJECT --reject-with icmp-port-unreachable
+    delete_quic_filter_rule -p udp --dport 443 -j DROP
+    # Remove leftover interface-bound rules from older images.
+    delete_quic_filter_rule -i eth0 -p udp --dport 443 -j REJECT --reject-with icmp-port-unreachable
+    delete_quic_filter_rule -i eth0 -p udp --dport 443 -j DROP
 }
 
 configure_quic_filter() {
     clear_quic_filter
 
     # Always block standard HTTP/3 (QUIC) traffic on UDP port 443.
-    if ! iptables -I FORWARD 1 -i eth0 -p udp --dport 443 \
+    if ! iptables -I FORWARD 1 -p udp --dport 443 \
         -j REJECT --reject-with icmp-port-unreachable; then
         log warn "iptables REJECT is unavailable, falling back to DROP"
-        iptables -I FORWARD 1 -i eth0 -p udp --dport 443 -j DROP
+        iptables -I FORWARD 1 -p udp --dport 443 -j DROP
     fi
-    log info "HTTP/3 (QUIC) blocking enabled on incoming eth0 UDP/443 traffic through iptables"
+    log info "HTTP/3 (QUIC) blocking enabled on UDP/443 traffic through iptables"
 }
 
 load_config() {
