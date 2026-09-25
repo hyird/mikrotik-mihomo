@@ -163,6 +163,45 @@ window.__METACUBEXD_CONFIG__ = {
 EOF
 }
 
+preserve_user_groups_and_rules() {
+    local existing_yaml=$1
+    local generated_yaml=$2
+    local merged_yaml=$3
+
+    awk -v existing_yaml="$existing_yaml" '
+        function top_level_key(line, key) {
+            if (line !~ /^[^[:space:]#][^:]*:/) return ""
+            key = line
+            sub(/:.*/, "", key)
+            return key
+        }
+        FILENAME == existing_yaml {
+            key = top_level_key($0)
+            if (key != "") section = key
+            if (section == "proxy-groups" || section == "rules") {
+                saved[section] = saved[section] $0 "\n"
+            }
+            next
+        }
+        {
+            key = top_level_key($0)
+            if (key != "") {
+                section = key
+                if ((key == "proxy-groups" || key == "rules") && saved[key] != "") {
+                    printf "%s", saved[key]
+                    printed[key] = 1
+                }
+            }
+            if ((section == "proxy-groups" || section == "rules") && saved[section] != "") next
+            print
+        }
+        END {
+            if (saved["proxy-groups"] != "" && !printed["proxy-groups"]) printf "%s", saved["proxy-groups"]
+            if (saved["rules"] != "" && !printed["rules"]) printf "%s", saved["rules"]
+        }
+    ' "$existing_yaml" "$generated_yaml" > "$merged_yaml"
+}
+
 generate_clash_config() {
     local clash_config_dir="${CLASH_CONFIG_DIR:-/etc/mihomo}"
     local base_yaml="$clash_config_dir/base.yaml"
@@ -171,35 +210,48 @@ generate_clash_config() {
 
     if [ -f "$base_yaml" ]; then
         log info "Generating Clash configuration from base.yaml"
-        cp "$base_yaml" "$output_yaml"
-        sed -i "s|{fake_cidr}|$FAKE_CIDR|g" "$output_yaml"
-        sed -i "s|{clash_web_port}|$CLASH_WEB_PORT|g" "$output_yaml"
-        sed -i "s|{log_level}|$LOG_LEVEL|g" "$output_yaml"
+        local generated_yaml
+        local merged_yaml
+        generated_yaml="$(mktemp "$clash_config_dir/.clash-generated.XXXXXX")"
+        merged_yaml="$(mktemp "$clash_config_dir/.clash-merged.XXXXXX")"
+        cp -p "$base_yaml" "$generated_yaml"
+        sed -i "s|{fake_cidr}|$FAKE_CIDR|g" "$generated_yaml"
+        sed -i "s|{clash_web_port}|$CLASH_WEB_PORT|g" "$generated_yaml"
+        sed -i "s|{log_level}|$LOG_LEVEL|g" "$generated_yaml"
         if [ -n "$CLASH_WEB_PASSWORD" ]; then
             local escaped_secret
             escaped_secret="$(escape_sed_replacement "$CLASH_WEB_PASSWORD")"
-            sed -i "s|{clash_web_password}|$escaped_secret|g" "$output_yaml"
+            sed -i "s|{clash_web_password}|$escaped_secret|g" "$generated_yaml"
         else
-            sed -i '/^[[:space:]]*secret:[[:space:]]*{clash_web_password}[[:space:]]*$/d' "$output_yaml"
+            sed -i '/^[[:space:]]*secret:[[:space:]]*{clash_web_password}[[:space:]]*$/d' "$generated_yaml"
         fi
 
         if [ -n "$SUBURL" ]; then
             local escaped_suburl
             escaped_suburl="$(escape_sed_replacement "$SUBURL")"
-            sed -i "s|{suburl}|$escaped_suburl|g" "$output_yaml"
+            sed -i "s|{suburl}|$escaped_suburl|g" "$generated_yaml"
 
             # Extract domain from SUBURL and set it to DIRECT
             local suburl_domain
             suburl_domain="$(echo "$SUBURL" | sed -E 's|^https?://||' | cut -d'/' -f1 | cut -d':' -f1)"
             if [ -n "$suburl_domain" ]; then
-                sed -i "s|{suburl_domain}|$suburl_domain|g" "$output_yaml"
+                sed -i "s|{suburl_domain}|$suburl_domain|g" "$generated_yaml"
                 log info "Subscription domain '$suburl_domain' set to DIRECT"
             fi
         else
             log warn "SUBURL not set, leaving provider url placeholder as-is"
             # Remove suburl_domain placeholder lines when no SUBURL is set
-            sed -i '/{suburl_domain}/d' "$output_yaml"
+            sed -i '/{suburl_domain}/d' "$generated_yaml"
         fi
+        if [ -f "$output_yaml" ]; then
+            cp -p "$output_yaml" "$merged_yaml"
+            preserve_user_groups_and_rules "$output_yaml" "$generated_yaml" "$merged_yaml"
+            mv "$merged_yaml" "$output_yaml"
+            log info "Preserved existing proxy-groups and rules"
+        else
+            mv "$generated_yaml" "$output_yaml"
+        fi
+        rm -f "$generated_yaml" "$merged_yaml"
         return 0
     fi
 
