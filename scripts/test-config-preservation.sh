@@ -16,6 +16,7 @@ CLASH_WEB_PORT="9090"
 CLASH_WEB_PASSWORD=""
 SUBURL=""
 LOG_LEVEL="info"
+CONFIG_COMPOSER="$repo_dir/scripts/compose_subscription.py"
 generate_clash_config
 grep -q 'name: "Proxy"' "$test_dir/clash.yaml"
 
@@ -41,8 +42,11 @@ cat > "$test_dir/subscription.yaml" <<'EOF'
 proxies:
   - name: upstream-node
     type: direct
+  - name: other-node
+    type: direct
 proxy-groups:
   - { name: UPSTREAM, type: select, proxies: [upstream-node] }
+  - { name: OTHER, type: select, proxies: [DIRECT, UPSTREAM] }
 rules:
   - "MATCH,UPSTREAM"
 EOF
@@ -59,9 +63,11 @@ curl() {
 }
 SUBURL="https://example.com/sub"
 generate_clash_config
-grep -q 'name: upstream-node' "$test_dir/clash.yaml"
 grep -q 'name: UPSTREAM' "$test_dir/clash.yaml"
 grep -q 'MATCH,UPSTREAM' "$test_dir/clash.yaml"
-! grep -q '^proxy-providers:' "$test_dir/clash.yaml"
+grep -q '^proxy-providers:' "$test_dir/clash.yaml"
+grep -q 'use:' "$test_dir/clash.yaml"
+grep -q 'filter:' "$test_dir/clash.yaml"
+! grep -q 'name: upstream-node' "$test_dir/clash.yaml"
 ! grep -q 'name: Custom' "$test_dir/clash.yaml"
 ! grep -q 'DOMAIN,example.org,Custom' "$test_dir/clash.yaml"

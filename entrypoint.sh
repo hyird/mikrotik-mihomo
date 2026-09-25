@@ -209,21 +209,6 @@ merge_config_sections() {
     ' "$source_yaml" "$generated_yaml" > "$merged_yaml"
 }
 
-remove_config_section() {
-    local section_name=$1
-    local input_yaml=$2
-    local output_yaml=$3
-
-    awk -v section_name="$section_name" '
-        /^[^[:space:]#][^:]*:/ {
-            key = $0
-            sub(/:.*/, "", key)
-            skip = (key == section_name)
-        }
-        !skip { print }
-    ' "$input_yaml" > "$output_yaml"
-}
-
 generate_clash_config() {
     local clash_config_dir="${CLASH_CONFIG_DIR:-/etc/mihomo}"
     local base_yaml="$clash_config_dir/base.yaml"
@@ -274,16 +259,13 @@ generate_clash_config() {
                 --user-agent clash.meta --output "$subscription_yaml" "$SUBURL" \
                 && grep -q '^proxies:' "$subscription_yaml" \
                 && grep -q '^proxy-groups:' "$subscription_yaml" \
-                && grep -q '^rules:' "$subscription_yaml"; then
-                merge_config_sections "$subscription_yaml" "$generated_yaml" "$merged_yaml" \
-                    'proxies|proxy-providers|proxy-groups|rule-providers|rules'
-                if grep -q '^proxy-providers:' "$subscription_yaml"; then
-                    mv "$merged_yaml" "$generated_yaml"
-                else
-                    remove_config_section 'proxy-providers' "$merged_yaml" "$generated_yaml"
-                fi
+                && grep -q '^rules:' "$subscription_yaml" \
+                && "${PYTHON_BIN:-python3}" \
+                    "${CONFIG_COMPOSER:-/opt/mihomo/scripts/compose_subscription.py}" \
+                    "$generated_yaml" "$subscription_yaml" "$merged_yaml"; then
+                mv "$merged_yaml" "$generated_yaml"
                 subscription_loaded=1
-                log info "Loaded proxies, groups, and rules from subscription"
+                log info "Loaded subscription groups and rules with provider-backed nodes"
             else
                 log error "Subscription did not provide a complete Clash configuration"
             fi
