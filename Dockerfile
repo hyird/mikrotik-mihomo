@@ -49,6 +49,7 @@ ARG RUNTIME_TZ=Asia/Shanghai
 RUN set -eux; \
     apk add --no-cache \
         ca-certificates-bundle \
+        curl \
         iptables \
         tini; \
     apk add --no-cache --virtual .tzdata tzdata; \
