@@ -41,7 +41,6 @@ RUN set -eux; \
 
 COPY clash/ /rootfs/etc/mihomo/
 COPY --chmod=755 entrypoint.sh /rootfs/opt/mihomo/entrypoint.sh
-COPY scripts/compose_subscription.py /rootfs/opt/mihomo/scripts/compose_subscription.py
 
 FROM alpine:latest
 
@@ -50,9 +49,7 @@ ARG RUNTIME_TZ=Asia/Shanghai
 RUN set -eux; \
     apk add --no-cache \
         ca-certificates-bundle \
-        curl \
         iptables \
-        py3-yaml \
         tini; \
     apk add --no-cache --virtual .tzdata tzdata; \
     tz_dir="$(dirname "$RUNTIME_TZ")"; \

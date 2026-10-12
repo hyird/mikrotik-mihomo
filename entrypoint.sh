@@ -163,26 +163,22 @@ window.__METACUBEXD_CONFIG__ = {
 EOF
 }
 
-merge_config_sections() {
-    local source_yaml=$1
+preserve_user_groups_and_rules() {
+    local existing_yaml=$1
     local generated_yaml=$2
     local merged_yaml=$3
-    local section_names=$4
 
-    awk -v source_yaml="$source_yaml" -v section_names="|$section_names|" '
+    awk -v existing_yaml="$existing_yaml" '
         function top_level_key(line, key) {
             if (line !~ /^[^[:space:]#][^:]*:/) return ""
             key = line
             sub(/:.*/, "", key)
             return key
         }
-        function selected(key) {
-            return index(section_names, "|" key "|") != 0
-        }
-        FILENAME == source_yaml {
+        FILENAME == existing_yaml {
             key = top_level_key($0)
             if (key != "") section = key
-            if (selected(section)) {
+            if (section == "proxy-groups" || section == "rules") {
                 saved[section] = saved[section] $0 "\n"
             }
             next
@@ -191,22 +187,19 @@ merge_config_sections() {
             key = top_level_key($0)
             if (key != "") {
                 section = key
-                if (selected(key) && saved[key] != "") {
+                if ((key == "proxy-groups" || key == "rules") && saved[key] != "") {
                     printf "%s", saved[key]
                     printed[key] = 1
                 }
             }
-            if (selected(section) && saved[section] != "") next
+            if ((section == "proxy-groups" || section == "rules") && saved[section] != "") next
             print
         }
         END {
-            count = split(section_names, names, "|")
-            for (i = 1; i <= count; i++) {
-                key = names[i]
-                if (key != "" && saved[key] != "" && !printed[key]) printf "%s", saved[key]
-            }
+            if (saved["proxy-groups"] != "" && !printed["proxy-groups"]) printf "%s", saved["proxy-groups"]
+            if (saved["rules"] != "" && !printed["rules"]) printf "%s", saved["rules"]
         }
-    ' "$source_yaml" "$generated_yaml" > "$merged_yaml"
+    ' "$existing_yaml" "$generated_yaml" > "$merged_yaml"
 }
 
 generate_clash_config() {
@@ -219,11 +212,8 @@ generate_clash_config() {
         log info "Generating Clash configuration from base.yaml"
         local generated_yaml
         local merged_yaml
-        local subscription_yaml
-        local subscription_loaded=0
         generated_yaml="$(mktemp "$clash_config_dir/.clash-generated.XXXXXX")"
         merged_yaml="$(mktemp "$clash_config_dir/.clash-merged.XXXXXX")"
-        subscription_yaml="$(mktemp "$clash_config_dir/.clash-subscription.XXXXXX")"
         cp -p "$base_yaml" "$generated_yaml"
         sed -i "s|{fake_cidr}|$FAKE_CIDR|g" "$generated_yaml"
         sed -i "s|{clash_web_port}|$CLASH_WEB_PORT|g" "$generated_yaml"
@@ -253,34 +243,15 @@ generate_clash_config() {
             # Remove suburl_domain placeholder lines when no SUBURL is set
             sed -i '/{suburl_domain}/d' "$generated_yaml"
         fi
-
-        if [ -n "$SUBURL" ]; then
-            if curl --fail --location --silent --show-error --retry 3 --max-time 45 \
-                --user-agent clash.meta --output "$subscription_yaml" "$SUBURL" \
-                && grep -q '^proxies:' "$subscription_yaml" \
-                && grep -q '^proxy-groups:' "$subscription_yaml" \
-                && grep -q '^rules:' "$subscription_yaml" \
-                && "${PYTHON_BIN:-python3}" \
-                    "${CONFIG_COMPOSER:-/opt/mihomo/scripts/compose_subscription.py}" \
-                    "$generated_yaml" "$subscription_yaml" "$merged_yaml"; then
-                mv "$merged_yaml" "$generated_yaml"
-                subscription_loaded=1
-                log info "Loaded subscription groups and rules with provider-backed nodes"
-            else
-                log error "Subscription did not provide a complete Clash configuration"
-            fi
-        fi
-
-        if [ "$subscription_loaded" -eq 0 ] && [ -f "$output_yaml" ]; then
+        if [ -f "$output_yaml" ]; then
             cp -p "$output_yaml" "$merged_yaml"
-            merge_config_sections "$output_yaml" "$generated_yaml" "$merged_yaml" \
-                'proxy-groups|rules'
+            preserve_user_groups_and_rules "$output_yaml" "$generated_yaml" "$merged_yaml"
             mv "$merged_yaml" "$output_yaml"
             log info "Preserved existing proxy-groups and rules"
         else
             mv "$generated_yaml" "$output_yaml"
         fi
-        rm -f "$generated_yaml" "$merged_yaml" "$subscription_yaml"
+        rm -f "$generated_yaml" "$merged_yaml"
         return 0
     fi
 
